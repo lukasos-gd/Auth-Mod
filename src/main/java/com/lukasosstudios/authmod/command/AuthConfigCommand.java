@@ -16,6 +16,21 @@ public final class AuthConfigCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("authconfig")
                 .requires(source -> source.hasPermission(3))
+                .then(literal("show")
+                        .executes(ctx -> {
+                            ModConfig config = ModConfig.get();
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "timeout-auth=" + config.timeoutAuthSeconds + "s, "
+                                            + "min-password-length=" + config.minPasswordLength + ", "
+                                            + "max-login-attempts=" + config.maxLoginAttempts), false);
+                            return 1;
+                        }))
+                .then(literal("reload")
+                        .executes(ctx -> {
+                            ModConfig.reload();
+                            ctx.getSource().sendSuccess(() -> Component.literal("authmod config.json reloaded."), true);
+                            return 1;
+                        }))
                 .then(literal("timeout-auth")
                         .then(argument("seconds", IntegerArgumentType.integer(1))
                                 .executes(ctx -> {
@@ -52,4 +67,4 @@ public final class AuthConfigCommand {
                                     return 1;
                                 }))));
     }
-}
+                                        }
