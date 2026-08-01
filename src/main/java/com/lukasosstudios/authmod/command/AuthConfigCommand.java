@@ -4,6 +4,7 @@ import com.lukasosstudios.authmod.ModConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 import static net.minecraft.commands.Commands.argument;
@@ -15,7 +16,7 @@ public final class AuthConfigCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("authconfig")
-                .requires(source -> source.hasPermission(3))
+                .requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
                 .then(literal("show")
                         .executes(ctx -> {
                             ModConfig config = ModConfig.get();
@@ -67,4 +68,4 @@ public final class AuthConfigCommand {
                                     return 1;
                                 }))));
     }
-                                        }
+}
