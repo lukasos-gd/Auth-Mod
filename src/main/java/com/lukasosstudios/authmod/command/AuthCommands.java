@@ -20,29 +20,29 @@ public final class AuthCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("register")
-                .then(argument("password", StringArgumentType.word())
-                        .then(argument("confirmPassword", StringArgumentType.word())
+                .then(argument("password", StringArgumentType.string())
+                        .then(argument("confirmPassword", StringArgumentType.string())
                                 .executes(ctx -> handleRegister(
                                         ctx.getSource(),
                                         StringArgumentType.getString(ctx, "password"),
                                         StringArgumentType.getString(ctx, "confirmPassword"))))));
 
         dispatcher.register(literal("login")
-                .then(argument("password", StringArgumentType.word())
+                .then(argument("password", StringArgumentType.string())
                         .executes(ctx -> handleLogin(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
 
         dispatcher.register(literal("changepassword")
-                .then(argument("oldPassword", StringArgumentType.word())
-                        .then(argument("newPassword", StringArgumentType.word())
+                .then(argument("oldPassword", StringArgumentType.string())
+                        .then(argument("newPassword", StringArgumentType.string())
                                 .executes(ctx -> handleChangePassword(
                                         ctx.getSource(),
                                         StringArgumentType.getString(ctx, "oldPassword"),
                                         StringArgumentType.getString(ctx, "newPassword"))))));
 
         dispatcher.register(literal("unregister")
-                .then(argument("password", StringArgumentType.word())
+                .then(argument("password", StringArgumentType.string())
                         .executes(ctx -> handleUnregister(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
@@ -189,4 +189,4 @@ public final class AuthCommands {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
         player.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
     }
-    }
+}
