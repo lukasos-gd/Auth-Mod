@@ -56,6 +56,7 @@ public class AuthMod implements ModInitializer {
 
         ServerTickEvents.END_SERVER_TICK.register(this::tick);
 
+        // Invulnerability both ways: unauthenticated players can't be hurt, and can't hurt others.
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             if (entity instanceof ServerPlayer victim && isRestricted(victim)) {
                 return false;
@@ -93,7 +94,7 @@ public class AuthMod implements ModInitializer {
             }
             return InteractionResult.PASS;
         });
-
+.
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && isRestricted(serverPlayer)) {
                 return InteractionResult.FAIL;
@@ -199,7 +200,8 @@ public class AuthMod implements ModInitializer {
             if (session.ticksUntilKick % 20 == 0) {
                 int secondsLeft = session.ticksUntilKick / 20;
                 String hint = session.state == AuthState.PENDING_LOGIN ? "/login <password>" : "/register <password> <confirm>";
-                player.displayClientMessage(Component.literal(secondsLeft + "s to " + hint), true);
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
+                        Component.literal(secondsLeft + "s to " + hint)));
             }
 
             session.ticksUntilKick--;
@@ -212,11 +214,11 @@ public class AuthMod implements ModInitializer {
 
     private void applyRestrictionEffects(ServerPlayer player) {
         player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, EFFECT_DURATION_TICKS, 0, false, false, false));
-        player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, EFFECT_DURATION_TICKS, 0, false, false, false));
+        player.addEffect(new MobEffectInstance(MobEffects.NAUSEA, EFFECT_DURATION_TICKS, 0, false, false, false));
     }
 
     public static boolean isRestricted(ServerPlayer player) {
         PlayerSession session = AuthManager.get().getSession(player.getUUID());
         return session != null && !session.isAuthenticated();
     }
-}
+        }
