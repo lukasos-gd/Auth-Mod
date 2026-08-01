@@ -1,7 +1,9 @@
 package com.lukasosstudios.authmod;
 
+import com.lukasosstudios.authmod.command.AuthAdminCommand;
 import com.lukasosstudios.authmod.command.AuthCommands;
 import com.lukasosstudios.authmod.command.AuthConfigCommand;
+import com.mojang.brigadier.tree.CommandNode;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -9,8 +11,11 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -19,17 +24,21 @@ import net.minecraft.world.effect.MobEffects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 public class AuthMod implements ModInitializer {
     public static final String MOD_ID = "authmod";
     public static final Logger LOGGER = LoggerFactory.getLogger("AuthMod");
 
-    // Reapplied periodically so it never runs out while a player is stuck on the login screen.
     private static final int EFFECT_REFRESH_TICKS = 200;
     private static final int EFFECT_DURATION_TICKS = 220;
+
+    private static final Set<String> COMMAND_ALLOWLIST = Set.of("register", "login", "help");
 
     @Override
     public void onInitialize() {
@@ -47,7 +56,6 @@ public class AuthMod implements ModInitializer {
 
         ServerTickEvents.END_SERVER_TICK.register(this::tick);
 
-        // Invulnerability both ways: unauthenticated players can't be hurt, and can't hurt others.
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             if (entity instanceof ServerPlayer victim && isRestricted(victim)) {
                 return false;
@@ -86,10 +94,55 @@ public class AuthMod implements ModInitializer {
             return InteractionResult.PASS;
         });
 
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (player instanceof ServerPlayer serverPlayer && isRestricted(serverPlayer)) {
+                return InteractionResult.FAIL;
+            }
+            return InteractionResult.PASS;
+        });
+
+        ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+            if (isRestricted(sender)) {
+                sender.sendSystemMessage(Component.literal("You must authenticate before chatting. Use /login or /register."));
+                return false;
+            }
+            return true;
+        });
+
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             AuthCommands.register(dispatcher);
             AuthConfigCommand.register(dispatcher);
+            AuthAdminCommand.register(dispatcher);
+            lockDownCommands(dispatcher);
         });
+    }
+
+    private void lockDownCommands(com.mojang.brigadier.CommandDispatcher<CommandSourceStack> dispatcher) {
+        for (CommandNode<CommandSourceStack> child : dispatcher.getRoot().getChildren()) {
+            if (COMMAND_ALLOWLIST.contains(child.getName())) {
+                continue;
+            }
+            wrapRequirement(child);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void wrapRequirement(CommandNode<CommandSourceStack> node) {
+        try {
+            Field field = CommandNode.class.getDeclaredField("requirement");
+            field.setAccessible(true);
+            Predicate<CommandSourceStack> original = (Predicate<CommandSourceStack>) field.get(node);
+            Predicate<CommandSourceStack> wrapped = source -> {
+                if (original != null && !original.test(source)) {
+                    return false;
+                }
+                ServerPlayer player = source.getPlayer();
+                return player == null || !isRestricted(player);
+            };
+            field.set(node, wrapped);
+        } catch (ReflectiveOperationException e) {
+            LOGGER.warn("Could not lock down command '{}' - brigadier's CommandNode#requirement field may have changed", node.getName(), e);
+        }
     }
 
     private void onPlayerJoin(ServerPlayer player) {
@@ -131,7 +184,6 @@ public class AuthMod implements ModInitializer {
                 continue;
             }
 
-            // Freeze in place.
             if (player.position().distanceToSqr(session.frozenPosition) > 0.001) {
                 player.teleportTo(session.frozenPosition.x, session.frozenPosition.y, session.frozenPosition.z);
             }
@@ -142,6 +194,12 @@ public class AuthMod implements ModInitializer {
 
             if (session.ticksUntilKick % EFFECT_REFRESH_TICKS == 0) {
                 applyRestrictionEffects(player);
+            }
+
+            if (session.ticksUntilKick % 20 == 0) {
+                int secondsLeft = session.ticksUntilKick / 20;
+                String hint = session.state == AuthState.PENDING_LOGIN ? "/login <password>" : "/register <password> <confirm>";
+                player.displayClientMessage(Component.literal(secondsLeft + "s to " + hint), true);
             }
 
             session.ticksUntilKick--;
@@ -157,9 +215,8 @@ public class AuthMod implements ModInitializer {
         player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, EFFECT_DURATION_TICKS, 0, false, false, false));
     }
 
-    /** True if this player still needs to /register or /login. */
     public static boolean isRestricted(ServerPlayer player) {
         PlayerSession session = AuthManager.get().getSession(player.getUUID());
         return session != null && !session.isAuthenticated();
     }
-                  }
+}
