@@ -35,11 +35,9 @@ public class AuthMod implements ModInitializer {
     public static final String MOD_ID = "authmod";
     public static final Logger LOGGER = LoggerFactory.getLogger("AuthMod");
 
-    // Reapplied periodically so it never runs out while a player is stuck on the login screen.
     private static final int EFFECT_REFRESH_TICKS = 200;
     private static final int EFFECT_DURATION_TICKS = 220;
 
-    // Root-level commands an unauthenticated player is still allowed to run.
     private static final Set<String> COMMAND_ALLOWLIST = Set.of("register", "login", "help");
 
     @Override
@@ -58,7 +56,6 @@ public class AuthMod implements ModInitializer {
 
         ServerTickEvents.END_SERVER_TICK.register(this::tick);
 
-        // Invulnerability both ways: unauthenticated players can't be hurt, and can't hurt others.
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             if (entity instanceof ServerPlayer victim && isRestricted(victim)) {
                 return false;
@@ -97,7 +94,6 @@ public class AuthMod implements ModInitializer {
             return InteractionResult.PASS;
         });
 
-        // Blocks attacking/interacting with entities: villager trading, mounting horses/boats, leashing, etc.
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (player instanceof ServerPlayer serverPlayer && isRestricted(serverPlayer)) {
                 return InteractionResult.FAIL;
@@ -105,7 +101,6 @@ public class AuthMod implements ModInitializer {
             return InteractionResult.PASS;
         });
 
-        // Blocks chat entirely for pending players; reminds them what to type instead.
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
             if (isRestricted(sender)) {
                 sender.sendSystemMessage(Component.literal("You must authenticate before chatting. Use /login or /register."));
@@ -122,14 +117,6 @@ public class AuthMod implements ModInitializer {
         });
     }
 
-    /**
-     * Wraps every top-level command's requirement (vanilla, other mods', and our own admin
-     * commands) so an unauthenticated player fails the permission check entirely - everything
-     * outside COMMAND_ALLOWLIST becomes "Unknown command" until they've authenticated.
-     * Uses reflection into Brigadier's CommandNode#requirement field, which is part of the
-     * stable, independently-versioned com.mojang.brigadier library rather than remapped
-     * Minecraft code, so this is not expected to break across Minecraft versions.
-     */
     private void lockDownCommands(com.mojang.brigadier.CommandDispatcher<CommandSourceStack> dispatcher) {
         for (CommandNode<CommandSourceStack> child : dispatcher.getRoot().getChildren()) {
             if (COMMAND_ALLOWLIST.contains(child.getName())) {
@@ -230,7 +217,6 @@ public class AuthMod implements ModInitializer {
         player.addEffect(new MobEffectInstance(MobEffects.NAUSEA, EFFECT_DURATION_TICKS, 0, false, false, false));
     }
 
-    /** True if this player still needs to /register or /login. */
     public static boolean isRestricted(ServerPlayer player) {
         PlayerSession session = AuthManager.get().getSession(player.getUUID());
         return session != null && !session.isAuthenticated();
