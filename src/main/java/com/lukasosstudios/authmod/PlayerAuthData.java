@@ -5,6 +5,8 @@ public class PlayerAuthData {
     public String passwordHash;
     public String salt;
     public long registeredAt;
+    public long lastLoginAt;
+    public String lastLoginIp;
 
     public PlayerAuthData() {
     }
