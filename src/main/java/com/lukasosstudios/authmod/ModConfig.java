@@ -33,6 +33,10 @@ public class ModConfig {
         return instance;
     }
 
+    public static void reload() {
+        instance = load();
+    }
+
     private static ModConfig load() {
         if (Files.exists(CONFIG_PATH)) {
             try (Reader reader = Files.newBufferedReader(CONFIG_PATH, StandardCharsets.UTF_8)) {
