@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "authmod",
+  "version": "${version}",
+  "name": "AuthMod",
+  "description": "Simple, self-contained login/registration security for your server. Freezes and blinds unauthenticated players until they /register or /login, kicking them if they run out of time.",
+  "authors": [
+    "Lukas"
+  ],
+  "contact": {},
+  "license": "Apache-2.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.lukasosstudios.authmod.AuthMod"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.2",
+    "fabric-api": "*"
+  }
+}
