@@ -7,6 +7,7 @@ import com.lukasosstudios.authmod.PlayerSession;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,7 +24,7 @@ public final class AuthAdminCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("authadmin")
-                .requires(source -> source.hasPermission(3))
+                .requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
                 .then(literal("unregister")
                         .then(argument("player", EntityArgument.player())
                                 .executes(ctx -> {
@@ -38,7 +39,7 @@ public final class AuthAdminCommand {
                                                 "An admin unregistered your account. Use /register <password> <confirmPassword> again."));
                                     }
                                     ctx.getSource().sendSuccess(() -> Component.literal(
-                                            "Unregistered " + target.getGameProfile().getName() + "."), true);
+                                            "Unregistered " + target.getName().getString() + "."), true);
                                     return 1;
                                 })))
                 .then(literal("resetpassword")
@@ -51,7 +52,7 @@ public final class AuthAdminCommand {
 
                                             if (!manager.isRegistered(target.getUUID())) {
                                                 ctx.getSource().sendFailure(Component.literal(
-                                                        target.getGameProfile().getName() + " is not registered."));
+                                                        target.getName().getString() + " is not registered."));
                                                 return 0;
                                             }
 
@@ -59,7 +60,7 @@ public final class AuthAdminCommand {
                                             target.sendSystemMessage(Component.literal(
                                                     "An admin reset your password. Log in again with the new one."));
                                             ctx.getSource().sendSuccess(() -> Component.literal(
-                                                    "Password reset for " + target.getGameProfile().getName() + "."), true);
+                                                    "Password reset for " + target.getName().getString() + "."), true);
                                             return 1;
                                         }))))
                 .then(literal("forcelogin")
@@ -71,16 +72,16 @@ public final class AuthAdminCommand {
 
                                     if (session == null || session.isAuthenticated()) {
                                         ctx.getSource().sendFailure(Component.literal(
-                                                target.getGameProfile().getName() + " is already authenticated."));
+                                                target.getName().getString() + " is already authenticated."));
                                         return 0;
                                     }
 
                                     session.state = AuthState.AUTHENTICATED;
                                     target.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
-                                    target.removeEffect(net.minecraft.world.effect.MobEffects.CONFUSION);
+                                    target.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
                                     target.sendSystemMessage(Component.literal("An admin has authenticated you."));
                                     ctx.getSource().sendSuccess(() -> Component.literal(
-                                            "Force-logged-in " + target.getGameProfile().getName() + "."), true);
+                                            "Force-logged-in " + target.getName().getString() + "."), true);
                                     return 1;
                                 })))
                 .then(literal("info")
@@ -92,7 +93,7 @@ public final class AuthAdminCommand {
 
                                     if (data == null) {
                                         ctx.getSource().sendSuccess(() -> Component.literal(
-                                                target.getGameProfile().getName() + " is not registered."), false);
+                                                target.getName().getString() + " is not registered."), false);
                                         return 1;
                                     }
 
@@ -114,7 +115,7 @@ public final class AuthAdminCommand {
                                         if (pendingCount > 0) {
                                             pending.append(", ");
                                         }
-                                        pending.append(p.getGameProfile().getName())
+                                        pending.append(p.getName().getString())
                                                 .append(" (").append(entry.getValue().ticksUntilKick / 20).append("s left)");
                                         pendingCount++;
                                     }
@@ -129,4 +130,4 @@ public final class AuthAdminCommand {
                             return 1;
                         })));
     }
-                              }
+}
