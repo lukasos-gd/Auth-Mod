@@ -70,6 +70,14 @@ public class AuthManager {
         return accounts.containsKey(uuid.toString());
     }
 
+    public PlayerAuthData getAccount(UUID uuid) {
+        return accounts.get(uuid.toString());
+    }
+
+    public int accountCount() {
+        return accounts.size();
+    }
+
     public PlayerSession getSession(UUID uuid) {
         return sessions.get(uuid);
     }
@@ -87,10 +95,23 @@ public class AuthManager {
     }
 
     /** Creates a new account and marks the given session authenticated. Caller must have already validated the password. */
-    public void register(UUID uuid, String username, String password) {
+    public void register(UUID uuid, String username, String password, String ip) {
         String salt = PasswordHasher.generateSalt();
         String hash = PasswordHasher.hash(password, salt);
-        accounts.put(uuid.toString(), new PlayerAuthData(username, hash, salt, System.currentTimeMillis()));
+        PlayerAuthData data = new PlayerAuthData(username, hash, salt, System.currentTimeMillis());
+        data.lastLoginAt = data.registeredAt;
+        data.lastLoginIp = ip;
+        accounts.put(uuid.toString(), data);
+        save();
+    }
+
+    public void recordLogin(UUID uuid, String ip) {
+        PlayerAuthData data = accounts.get(uuid.toString());
+        if (data == null) {
+            return;
+        }
+        data.lastLoginAt = System.currentTimeMillis();
+        data.lastLoginIp = ip;
         save();
     }
 
