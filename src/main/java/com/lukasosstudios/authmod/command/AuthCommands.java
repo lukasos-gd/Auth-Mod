@@ -20,29 +20,29 @@ public final class AuthCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("register")
-                .then(argument("password", StringArgumentType.string())
-                        .then(argument("confirmPassword", StringArgumentType.string())
+                .then(argument("password", PasswordArgumentType.password())
+                        .then(argument("confirmPassword", PasswordArgumentType.password())
                                 .executes(ctx -> handleRegister(
                                         ctx.getSource(),
                                         StringArgumentType.getString(ctx, "password"),
                                         StringArgumentType.getString(ctx, "confirmPassword"))))));
 
         dispatcher.register(literal("login")
-                .then(argument("password", StringArgumentType.string())
+                .then(argument("password", PasswordArgumentType.password())
                         .executes(ctx -> handleLogin(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
 
         dispatcher.register(literal("changepassword")
-                .then(argument("oldPassword", StringArgumentType.string())
-                        .then(argument("newPassword", StringArgumentType.string())
+                .then(argument("oldPassword", PasswordArgumentType.password())
+                        .then(argument("newPassword", PasswordArgumentType.password())
                                 .executes(ctx -> handleChangePassword(
                                         ctx.getSource(),
                                         StringArgumentType.getString(ctx, "oldPassword"),
                                         StringArgumentType.getString(ctx, "newPassword"))))));
 
         dispatcher.register(literal("unregister")
-                .then(argument("password", StringArgumentType.string())
+                .then(argument("password", PasswordArgumentType.password())
                         .executes(ctx -> handleUnregister(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
