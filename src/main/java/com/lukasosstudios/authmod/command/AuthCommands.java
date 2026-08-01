@@ -72,10 +72,10 @@ public final class AuthCommands {
             return 0;
         }
 
-        manager.register(player.getUUID(), player.getGameProfile().getName(), password, com.lukasosstudios.authmod.NetUtil.getIp(player));
+        manager.register(player.getUUID(), player.getName().getString(), password, com.lukasosstudios.authmod.NetUtil.getIp(player));
         session.state = AuthState.AUTHENTICATED;
         clearRestrictionEffects(player);
-        source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome, " + player.getGameProfile().getName() + "."), false);
+        source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome, " + player.getName().getString() + "."), false);
         return 1;
     }
 
@@ -93,7 +93,7 @@ public final class AuthCommands {
             session.state = AuthState.AUTHENTICATED;
             manager.recordLogin(player.getUUID(), com.lukasosstudios.authmod.NetUtil.getIp(player));
             clearRestrictionEffects(player);
-            source.sendSuccess(() -> Component.literal("Login successful. Welcome back, " + player.getGameProfile().getName() + "!"), false);
+            source.sendSuccess(() -> Component.literal("Login successful. Welcome back, " + player.getName().getString() + "!"), false);
             return 1;
         }
 
@@ -187,6 +187,6 @@ public final class AuthCommands {
 
     private static void clearRestrictionEffects(ServerPlayer player) {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
-        player.removeEffect(net.minecraft.world.effect.MobEffects.CONFUSION);
+        player.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
     }
-}
+    }
