@@ -1,0 +1,157 @@
+package com.lukasosstudios.authmod.command;
+
+import com.lukasosstudios.authmod.AuthManager;
+import com.lukasosstudios.authmod.AuthMod;
+import com.lukasosstudios.authmod.AuthState;
+import com.lukasosstudios.authmod.ModConfig;
+import com.lukasosstudios.authmod.PlayerSession;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
+
+public final class AuthCommands {
+    private AuthCommands() {
+    }
+
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(literal("register")
+                .then(argument("password", StringArgumentType.word())
+                        .then(argument("confirmPassword", StringArgumentType.word())
+                                .executes(ctx -> handleRegister(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "password"),
+                                        StringArgumentType.getString(ctx, "confirmPassword"))))));
+
+        dispatcher.register(literal("login")
+                .then(argument("password", StringArgumentType.word())
+                        .executes(ctx -> handleLogin(
+                                ctx.getSource(),
+                                StringArgumentType.getString(ctx, "password")))));
+
+        dispatcher.register(literal("changepassword")
+                .then(argument("oldPassword", StringArgumentType.word())
+                        .then(argument("newPassword", StringArgumentType.word())
+                                .executes(ctx -> handleChangePassword(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "oldPassword"),
+                                        StringArgumentType.getString(ctx, "newPassword"))))));
+
+        dispatcher.register(literal("unregister")
+                .then(argument("password", StringArgumentType.word())
+                        .executes(ctx -> handleUnregister(
+                                ctx.getSource(),
+                                StringArgumentType.getString(ctx, "password")))));
+    }
+
+    private static int handleRegister(CommandSourceStack source, String password, String confirmPassword) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        AuthManager manager = AuthManager.get();
+        PlayerSession session = manager.getSession(player.getUUID());
+
+        if (session == null || session.state != AuthState.PENDING_REGISTER) {
+            source.sendFailure(Component.literal("This account is already registered. Use /login instead."));
+            return 0;
+        }
+
+        if (!password.equals(confirmPassword)) {
+            source.sendFailure(Component.literal("Passwords do not match."));
+            return 0;
+        }
+
+        int minLength = ModConfig.get().minPasswordLength;
+        if (password.length() < minLength) {
+            source.sendFailure(Component.literal("Password must be at least " + minLength + " characters."));
+            return 0;
+        }
+
+        manager.register(player.getUUID(), player.getGameProfile().getName(), password);
+        session.state = AuthState.AUTHENTICATED;
+        clearRestrictionEffects(player);
+        source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome."), false);
+        return 1;
+    }
+
+    private static int handleLogin(CommandSourceStack source, String password) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        AuthManager manager = AuthManager.get();
+        PlayerSession session = manager.getSession(player.getUUID());
+
+        if (session == null || session.state != AuthState.PENDING_LOGIN) {
+            source.sendFailure(Component.literal("You are not awaiting login. Are you already logged in?"));
+            return 0;
+        }
+
+        if (manager.checkPassword(player.getUUID(), password)) {
+            session.state = AuthState.AUTHENTICATED;
+            clearRestrictionEffects(player);
+            source.sendSuccess(() -> Component.literal("Login successful. Welcome back!"), false);
+            return 1;
+        }
+
+        session.failedAttempts++;
+        int maxAttempts = ModConfig.get().maxLoginAttempts;
+        if (maxAttempts > 0 && session.failedAttempts >= maxAttempts) {
+            player.connection.disconnect(Component.literal("Too many failed login attempts."));
+            return 0;
+        }
+
+        source.sendFailure(Component.literal("Incorrect password."));
+        return 0;
+    }
+
+    private static int handleChangePassword(CommandSourceStack source, String oldPassword, String newPassword) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        AuthManager manager = AuthManager.get();
+        PlayerSession session = manager.getSession(player.getUUID());
+
+        if (session == null || session.state != AuthState.AUTHENTICATED) {
+            source.sendFailure(Component.literal("You must be logged in to change your password."));
+            return 0;
+        }
+
+        if (!manager.checkPassword(player.getUUID(), oldPassword)) {
+            source.sendFailure(Component.literal("Incorrect current password."));
+            return 0;
+        }
+
+        int minLength = ModConfig.get().minPasswordLength;
+        if (newPassword.length() < minLength) {
+            source.sendFailure(Component.literal("Password must be at least " + minLength + " characters."));
+            return 0;
+        }
+
+        manager.changePassword(player.getUUID(), newPassword);
+        source.sendSuccess(() -> Component.literal("Password changed."), false);
+        return 1;
+    }
+
+    private static int handleUnregister(CommandSourceStack source, String password) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        AuthManager manager = AuthManager.get();
+        PlayerSession session = manager.getSession(player.getUUID());
+
+        if (session == null || session.state != AuthState.AUTHENTICATED) {
+            source.sendFailure(Component.literal("You must be logged in to unregister."));
+            return 0;
+        }
+
+        if (!manager.checkPassword(player.getUUID(), password)) {
+            source.sendFailure(Component.literal("Incorrect password."));
+            return 0;
+        }
+
+        manager.unregister(player.getUUID());
+        source.sendSuccess(() -> Component.literal("Account unregistered. You'll need to /register again next join."), false);
+        return 1;
+    }
+
+    private static void clearRestrictionEffects(ServerPlayer player) {
+        player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
+        player.removeEffect(net.minecraft.world.effect.MobEffects.CONFUSION);
+    }
+            }
