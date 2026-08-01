@@ -46,6 +46,9 @@ public final class AuthCommands {
                         .executes(ctx -> handleUnregister(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
+
+        dispatcher.register(literal("authinfo")
+                .executes(ctx -> handleAuthInfo(ctx.getSource())));
     }
 
     private static int handleRegister(CommandSourceStack source, String password, String confirmPassword) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -69,10 +72,10 @@ public final class AuthCommands {
             return 0;
         }
 
-        manager.register(player.getUUID(), player.getGameProfile().getName(), password);
+        manager.register(player.getUUID(), player.getGameProfile().getName(), password, com.lukasosstudios.authmod.NetUtil.getIp(player));
         session.state = AuthState.AUTHENTICATED;
         clearRestrictionEffects(player);
-        source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome."), false);
+        source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome, " + player.getGameProfile().getName() + "."), false);
         return 1;
     }
 
@@ -88,8 +91,9 @@ public final class AuthCommands {
 
         if (manager.checkPassword(player.getUUID(), password)) {
             session.state = AuthState.AUTHENTICATED;
+            manager.recordLogin(player.getUUID(), com.lukasosstudios.authmod.NetUtil.getIp(player));
             clearRestrictionEffects(player);
-            source.sendSuccess(() -> Component.literal("Login successful. Welcome back!"), false);
+            source.sendSuccess(() -> Component.literal("Login successful. Welcome back, " + player.getGameProfile().getName() + "!"), false);
             return 1;
         }
 
@@ -100,7 +104,12 @@ public final class AuthCommands {
             return 0;
         }
 
-        source.sendFailure(Component.literal("Incorrect password."));
+        if (maxAttempts > 0) {
+            int remaining = maxAttempts - session.failedAttempts;
+            source.sendFailure(Component.literal("Incorrect password. " + remaining + " attempt(s) remaining before kick."));
+        } else {
+            source.sendFailure(Component.literal("Incorrect password."));
+        }
         return 0;
     }
 
@@ -150,8 +159,34 @@ public final class AuthCommands {
         return 1;
     }
 
+    private static int handleAuthInfo(CommandSourceStack source) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        AuthManager manager = AuthManager.get();
+        com.lukasosstudios.authmod.PlayerAuthData data = manager.getAccount(player.getUUID());
+
+        if (data == null) {
+            source.sendFailure(Component.literal("You are not registered yet. Use /register <password> <confirmPassword>."));
+            return 0;
+        }
+
+        source.sendSuccess(() -> Component.literal("Account: " + data.username), false);
+        source.sendSuccess(() -> Component.literal("Registered: " + formatTimestamp(data.registeredAt)), false);
+        source.sendSuccess(() -> Component.literal("Last login: " + formatTimestamp(data.lastLoginAt)
+                + (data.lastLoginIp != null ? " from " + data.lastLoginIp : "")), false);
+        return 1;
+    }
+
+    static String formatTimestamp(long epochMillis) {
+        if (epochMillis <= 0) {
+            return "never";
+        }
+        return java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault())
+                .format(java.time.Instant.ofEpochMilli(epochMillis));
+    }
+
     private static void clearRestrictionEffects(ServerPlayer player) {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
         player.removeEffect(net.minecraft.world.effect.MobEffects.CONFUSION);
     }
-            }
+}
