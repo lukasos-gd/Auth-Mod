@@ -44,7 +44,7 @@ public final class AuthAdminCommand {
                                 })))
                 .then(literal("resetpassword")
                         .then(argument("player", EntityArgument.player())
-                                .then(argument("newPassword", StringArgumentType.word())
+                                .then(argument("newPassword", StringArgumentType.string())
                                         .executes(ctx -> {
                                             ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
                                             String newPassword = StringArgumentType.getString(ctx, "newPassword");
@@ -130,4 +130,4 @@ public final class AuthAdminCommand {
                             return 1;
                         })));
     }
-}
+                                       }
