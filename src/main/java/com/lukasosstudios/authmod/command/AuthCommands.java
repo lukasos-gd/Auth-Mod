@@ -20,35 +20,54 @@ public final class AuthCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("register")
-                .then(argument("password", PasswordArgumentType.password())
-                        .then(argument("confirmPassword", PasswordArgumentType.password())
-                                .executes(ctx -> handleRegister(
-                                        ctx.getSource(),
-                                        StringArgumentType.getString(ctx, "password"),
-                                        StringArgumentType.getString(ctx, "confirmPassword"))))));
+                .then(argument("passwords", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            String[] parts = splitTwo(StringArgumentType.getString(ctx, "passwords"));
+                            if (parts == null) {
+                                ctx.getSource().sendFailure(Component.literal("Usage: /register <password> <confirmPassword>"));
+                                return 0;
+                            }
+                            return handleRegister(ctx.getSource(), parts[0], parts[1]);
+                        })));
 
         dispatcher.register(literal("login")
-                .then(argument("password", PasswordArgumentType.password())
+                .then(argument("password", StringArgumentType.greedyString())
                         .executes(ctx -> handleLogin(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
 
         dispatcher.register(literal("changepassword")
-                .then(argument("oldPassword", PasswordArgumentType.password())
-                        .then(argument("newPassword", PasswordArgumentType.password())
-                                .executes(ctx -> handleChangePassword(
-                                        ctx.getSource(),
-                                        StringArgumentType.getString(ctx, "oldPassword"),
-                                        StringArgumentType.getString(ctx, "newPassword"))))));
+                .then(argument("passwords", StringArgumentType.greedyString())
+                        .executes(ctx -> {
+                            String[] parts = splitTwo(StringArgumentType.getString(ctx, "passwords"));
+                            if (parts == null) {
+                                ctx.getSource().sendFailure(Component.literal("Usage: /changepassword <old> <new>"));
+                                return 0;
+                            }
+                            return handleChangePassword(ctx.getSource(), parts[0], parts[1]);
+                        })));
 
         dispatcher.register(literal("unregister")
-                .then(argument("password", PasswordArgumentType.password())
+                .then(argument("password", StringArgumentType.greedyString())
                         .executes(ctx -> handleUnregister(
                                 ctx.getSource(),
                                 StringArgumentType.getString(ctx, "password")))));
 
         dispatcher.register(literal("authinfo")
                 .executes(ctx -> handleAuthInfo(ctx.getSource())));
+    }
+
+    /**
+     * Splits "password confirmPassword" on the first space only, so passwords
+     * themselves can contain any character except a literal space - no quoting
+     * needed. Returns null if there's no second word to split off.
+     */
+    private static String[] splitTwo(String raw) {
+        int space = raw.indexOf(' ');
+        if (space < 0 || space == raw.length() - 1) {
+            return null;
+        }
+        return new String[]{raw.substring(0, space), raw.substring(space + 1)};
     }
 
     private static int handleRegister(CommandSourceStack source, String password, String confirmPassword) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -189,4 +208,4 @@ public final class AuthCommands {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
         player.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
     }
-}
+    }
