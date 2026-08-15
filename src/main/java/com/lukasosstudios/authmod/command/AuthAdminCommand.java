@@ -232,6 +232,6 @@ public final class AuthAdminCommand {
                                     ctx.getSource().sendSuccess(() -> Component.literal(
                                             "Purged " + removed + " account(s) inactive for " + days + "+ days."), true);
                                     return 1;
-                                })));
+                                }))));
     }
-                                                    }
+                                                        }
