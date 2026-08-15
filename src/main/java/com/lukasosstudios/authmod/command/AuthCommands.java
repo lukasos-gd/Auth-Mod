@@ -57,11 +57,6 @@ public final class AuthCommands {
                 .executes(ctx -> handleAuthInfo(ctx.getSource())));
     }
 
-    /**
-     * Splits "password confirmPassword" on the first space only, so passwords
-     * themselves can contain any character except a literal space - no quoting
-     * needed. Returns null if there's no second word to split off.
-     */
     private static String[] splitTwo(String raw) {
         int space = raw.indexOf(' ');
         if (space < 0 || space == raw.length() - 1) {
@@ -93,6 +88,7 @@ public final class AuthCommands {
 
         manager.register(player.getUUID(), player.getName().getString(), password, com.lukasosstudios.authmod.NetUtil.getIp(player));
         session.state = AuthState.AUTHENTICATED;
+        session.authenticatedAtMillis = System.currentTimeMillis();
         clearRestrictionEffects(player);
         source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome, " + player.getName().getString() + "."), false);
         return 1;
@@ -110,6 +106,7 @@ public final class AuthCommands {
 
         if (manager.checkPassword(player.getUUID(), password)) {
             session.state = AuthState.AUTHENTICATED;
+            session.authenticatedAtMillis = System.currentTimeMillis();
             manager.recordLogin(player.getUUID(), com.lukasosstudios.authmod.NetUtil.getIp(player));
             clearRestrictionEffects(player);
             source.sendSuccess(() -> Component.literal("Login successful. Welcome back, " + player.getName().getString() + "!"), false);
@@ -208,4 +205,4 @@ public final class AuthCommands {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
         player.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
     }
-    }
+            }
