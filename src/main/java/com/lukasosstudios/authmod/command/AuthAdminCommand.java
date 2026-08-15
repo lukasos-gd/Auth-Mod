@@ -2,9 +2,11 @@ package com.lukasosstudios.authmod.command;
 
 import com.lukasosstudios.authmod.AuthManager;
 import com.lukasosstudios.authmod.AuthState;
+import com.lukasosstudios.authmod.LoginRecord;
 import com.lukasosstudios.authmod.PlayerAuthData;
 import com.lukasosstudios.authmod.PlayerSession;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -12,8 +14,10 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -77,6 +81,7 @@ public final class AuthAdminCommand {
                                     }
 
                                     session.state = AuthState.AUTHENTICATED;
+                                    session.authenticatedAtMillis = System.currentTimeMillis();
                                     target.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
                                     target.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
                                     target.sendSystemMessage(Component.literal("An admin has authenticated you."));
@@ -128,6 +133,105 @@ public final class AuthAdminCommand {
                                             + finalPendingCount + " online player(s) not yet authenticated"
                                             + (finalPendingCount > 0 ? ": " + pendingList : ".")), false);
                             return 1;
-                        })));
+                        }))
+                .then(literal("sessions")
+                        .executes(ctx -> {
+                            AuthManager manager = AuthManager.get();
+                            StringBuilder sb = new StringBuilder();
+                            int count = 0;
+                            for (Map.Entry<UUID, PlayerSession> entry : manager.allSessions().entrySet()) {
+                                PlayerSession session = entry.getValue();
+                                if (!session.isAuthenticated()) {
+                                    continue;
+                                }
+                                ServerPlayer p = ctx.getSource().getServer().getPlayerList().getPlayer(entry.getKey());
+                                if (p == null) {
+                                    continue;
+                                }
+                                PlayerAuthData data = manager.getAccount(entry.getKey());
+                                if (count > 0) {
+                                    sb.append("\n");
+                                }
+                                sb.append(p.getName().getString())
+                                        .append(" - authenticated ").append(AuthCommands.formatTimestamp(session.authenticatedAtMillis))
+                                        .append(data != null && data.lastLoginIp != null ? " from " + data.lastLoginIp : "");
+                                count++;
+                            }
+                            final int finalCount = count;
+                            final String finalSb = sb.toString();
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    finalCount + " authenticated session(s)."
+                                            + (finalCount > 0 ? "\n" + finalSb : "")), false);
+                            return 1;
+                        }))
+                .then(literal("searchip")
+                        .then(argument("ip", StringArgumentType.word())
+                                .executes(ctx -> {
+                                    String ip = StringArgumentType.getString(ctx, "ip");
+                                    List<Map.Entry<UUID, PlayerAuthData>> matches = AuthManager.get().searchByIp(ip);
+
+                                    if (matches.isEmpty()) {
+                                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                                "No accounts found with IP " + ip + "."), false);
+                                        return 1;
+                                    }
+
+                                    StringBuilder sb = new StringBuilder();
+                                    for (Map.Entry<UUID, PlayerAuthData> match : matches) {
+                                        if (sb.length() > 0) {
+                                            sb.append("\n");
+                                        }
+                                        sb.append(match.getValue().username)
+                                                .append(" (last login ")
+                                                .append(AuthCommands.formatTimestamp(match.getValue().lastLoginAt))
+                                                .append(")");
+                                    }
+                                    final String result = sb.toString();
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                            matches.size() + " account(s) matched IP " + ip + ":\n" + result), false);
+                                    return 1;
+                                })))
+                .then(literal("history")
+                        .then(argument("player", EntityArgument.player())
+                                .executes(ctx -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                    PlayerAuthData data = AuthManager.get().getAccount(target.getUUID());
+
+                                    if (data == null) {
+                                        ctx.getSource().sendFailure(Component.literal(
+                                                target.getName().getString() + " is not registered."));
+                                        return 0;
+                                    }
+
+                                    if (data.loginHistory.isEmpty()) {
+                                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                                "No login history recorded for " + data.username + "."), false);
+                                        return 1;
+                                    }
+
+                                    StringBuilder sb = new StringBuilder();
+                                    for (int i = data.loginHistory.size() - 1; i >= 0; i--) {
+                                        LoginRecord record = data.loginHistory.get(i);
+                                        sb.append(AuthCommands.formatTimestamp(record.timestamp))
+                                                .append(" - ").append(record.ip);
+                                        if (i > 0) {
+                                            sb.append("\n");
+                                        }
+                                    }
+                                    final String result = sb.toString();
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                            "Login history for " + data.username + " (newest first):\n" + result), false);
+                                    return 1;
+                                })))
+                .then(literal("purge")
+                        .then(argument("days", IntegerArgumentType.integer(1))
+                                .executes(ctx -> {
+                                    int days = IntegerArgumentType.getInteger(ctx, "days");
+                                    long cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(days);
+                                    int removed = AuthManager.get().purgeInactive(cutoff);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                            "Purged " + removed + " account(s) inactive for " + days + "+ days."), true);
+                                    return 1;
+                                })));
     }
-}
+                                                    }
