@@ -9,6 +9,7 @@ public class PlayerSession {
     public float frozenPitch;
     public int ticksUntilKick;
     public int failedAttempts = 0;
+    public long authenticatedAtMillis = 0;
 
     public PlayerSession(AuthState state, Vec3 frozenPosition, float frozenYaw, float frozenPitch, int ticksUntilKick) {
         this.state = state;
