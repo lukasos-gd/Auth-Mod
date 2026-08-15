@@ -39,6 +39,7 @@ public final class AuthAdminCommand {
                                     if (session != null) {
                                         session.state = AuthState.PENDING_REGISTER;
                                         session.failedAttempts = 0;
+                                        ctx.getSource().getServer().getCommands().sendCommands(target);
                                         target.sendSystemMessage(Component.literal(
                                                 "An admin unregistered your account. Use /register <password> <confirmPassword> again."));
                                     }
@@ -84,6 +85,7 @@ public final class AuthAdminCommand {
                                     session.authenticatedAtMillis = System.currentTimeMillis();
                                     target.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
                                     target.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
+                                    ctx.getSource().getServer().getCommands().sendCommands(target);
                                     target.sendSystemMessage(Component.literal("An admin has authenticated you."));
                                     ctx.getSource().sendSuccess(() -> Component.literal(
                                             "Force-logged-in " + target.getName().getString() + "."), true);
@@ -234,4 +236,4 @@ public final class AuthAdminCommand {
                                     return 1;
                                 }))));
     }
-                                                        }
+}
