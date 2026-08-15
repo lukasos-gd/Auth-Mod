@@ -90,6 +90,7 @@ public final class AuthCommands {
         session.state = AuthState.AUTHENTICATED;
         session.authenticatedAtMillis = System.currentTimeMillis();
         clearRestrictionEffects(player);
+        source.getServer().getCommands().sendCommands(player);
         source.sendSuccess(() -> Component.literal("Registered and logged in! Welcome, " + player.getName().getString() + "."), false);
         return 1;
     }
@@ -109,6 +110,7 @@ public final class AuthCommands {
             session.authenticatedAtMillis = System.currentTimeMillis();
             manager.recordLogin(player.getUUID(), com.lukasosstudios.authmod.NetUtil.getIp(player));
             clearRestrictionEffects(player);
+            source.getServer().getCommands().sendCommands(player);
             source.sendSuccess(() -> Component.literal("Login successful. Welcome back, " + player.getName().getString() + "!"), false);
             return 1;
         }
@@ -205,4 +207,4 @@ public final class AuthCommands {
         player.removeEffect(net.minecraft.world.effect.MobEffects.BLINDNESS);
         player.removeEffect(net.minecraft.world.effect.MobEffects.NAUSEA);
     }
-            }
+}
