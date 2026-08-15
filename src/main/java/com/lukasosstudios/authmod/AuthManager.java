@@ -12,9 +12,13 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Map.Entry;
+import java.util.Iterator;
 
 public class AuthManager {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -94,13 +98,15 @@ public class AuthManager {
         return sessions;
     }
 
-    /** Creates a new account and marks the given session authenticated. Caller must have already validated the password. */
+    private static final int MAX_HISTORY = 20;
+
     public void register(UUID uuid, String username, String password, String ip) {
         String salt = PasswordHasher.generateSalt();
         String hash = PasswordHasher.hash(password, salt);
         PlayerAuthData data = new PlayerAuthData(username, hash, salt, System.currentTimeMillis());
         data.lastLoginAt = data.registeredAt;
         data.lastLoginIp = ip;
+        data.loginHistory.add(new LoginRecord(data.registeredAt, ip));
         accounts.put(uuid.toString(), data);
         save();
     }
@@ -110,9 +116,50 @@ public class AuthManager {
         if (data == null) {
             return;
         }
-        data.lastLoginAt = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        data.lastLoginAt = now;
         data.lastLoginIp = ip;
+        data.loginHistory.add(new LoginRecord(now, ip));
+        while (data.loginHistory.size() > MAX_HISTORY) {
+            data.loginHistory.remove(0);
+        }
         save();
+    }
+
+    public List<Map.Entry<UUID, PlayerAuthData>> searchByIp(String ip) {
+        List<Map.Entry<UUID, PlayerAuthData>> matches = new ArrayList<>();
+        for (Map.Entry<String, PlayerAuthData> entry : accounts.entrySet()) {
+            PlayerAuthData data = entry.getValue();
+            boolean matched = ip.equals(data.lastLoginIp);
+            if (!matched) {
+                for (LoginRecord record : data.loginHistory) {
+                    if (ip.equals(record.ip)) {
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (matched) {
+                matches.add(Map.entry(UUID.fromString(entry.getKey()), data));
+            }
+        }
+        return matches;
+    }
+
+    public int purgeInactive(long cutoffMillis) {
+        int removed = 0;
+        Iterator<Entry<String, PlayerAuthData>> iterator = accounts.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Entry<String, PlayerAuthData> entry = iterator.next();
+            if (entry.getValue().lastLoginAt < cutoffMillis) {
+                iterator.remove();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            save();
+        }
+        return removed;
     }
 
     public boolean checkPassword(UUID uuid, String password) {
