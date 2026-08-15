@@ -1,5 +1,8 @@
 package com.lukasosstudios.authmod;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlayerAuthData {
     public String username;
     public String passwordHash;
@@ -7,6 +10,7 @@ public class PlayerAuthData {
     public long registeredAt;
     public long lastLoginAt;
     public String lastLoginIp;
+    public List<LoginRecord> loginHistory = new ArrayList<>();
 
     public PlayerAuthData() {
     }
